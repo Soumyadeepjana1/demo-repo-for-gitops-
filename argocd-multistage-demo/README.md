@@ -1,17 +1,8 @@
 # ArgoCD Multi-Stage Demo
 
-## Repository Structure
+Repository: https://github.com/Soumyadeepjana1/demo-repo-for-gitops-.git
 
-- apps/
-  - nginx/
-  - apache/
-  - online-shop/
-- argocd/
-  - root-app.yaml
-  - children/
-    - dev-app.yaml
-    - staging-app.yaml
-    - prod-app.yaml
+Branch: master
 
 ## Architecture
 
@@ -25,3 +16,10 @@ Each environment deploys:
 - Nginx
 - Apache
 - Online Shop
+
+## Technologies
+
+- Kubernetes
+- Argo CD
+- Kustomize
+- GitHub

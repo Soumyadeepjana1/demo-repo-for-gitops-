@@ -3,12 +3,24 @@
 
 set -e
 
+# ==========================================
+# PROJECT CONFIGURATION
+# ==========================================
+
 PROJECT="argocd-multistage-demo"
+
 REPO_URL="https://github.com/Soumyadeepjana1/demo-repo-for-gitops-.git"
 
-echo "Creating project structure..."
+BRANCH="master"
 
-# Directories
+CLUSTER_SERVER="https://192.168.49.2:8443"
+
+echo "Creating ArgoCD Multi-Stage Project..."
+
+# ==========================================
+# DIRECTORY STRUCTURE
+# ==========================================
+
 mkdir -p "$PROJECT/apps/nginx"
 mkdir -p "$PROJECT/apps/apache"
 mkdir -p "$PROJECT/apps/online-shop"
@@ -16,9 +28,9 @@ mkdir -p "$PROJECT/argocd/children"
 
 cd "$PROJECT"
 
-# ==================================
+# ==========================================
 # NGINX
-# ==================================
+# ==========================================
 
 cat > apps/nginx/deployment.yaml <<'EOF'
 apiVersion: apps/v1
@@ -64,9 +76,9 @@ resources:
   - service.yaml
 EOF
 
-# ==================================
+# ==========================================
 # APACHE
-# ==================================
+# ==========================================
 
 cat > apps/apache/deployment.yaml <<'EOF'
 apiVersion: apps/v1
@@ -112,9 +124,9 @@ resources:
   - service.yaml
 EOF
 
-# ==================================
+# ==========================================
 # ONLINE SHOP
-# ==================================
+# ==========================================
 
 cat > apps/online-shop/deployment.yaml <<'EOF'
 apiVersion: apps/v1
@@ -162,9 +174,9 @@ resources:
   - service.yaml
 EOF
 
-# ==================================
+# ==========================================
 # APPS KUSTOMIZATION
-# ==================================
+# ==========================================
 
 cat > apps/kustomization.yaml <<'EOF'
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -175,52 +187,62 @@ resources:
   - online-shop
 EOF
 
-# ==================================
+# ==========================================
 # ROOT APPLICATION
-# ==================================
+# ==========================================
 
 cat > argocd/root-app.yaml <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
+
 metadata:
   name: root-app
   namespace: argocd
+
 spec:
   project: default
+
   source:
     repoURL: $REPO_URL
-    targetRevision: main
-    path: argocd/children
+    targetRevision: $BRANCH
+    path: $PROJECT/argocd/children
     directory:
       recurse: true
+
   destination:
-    server: https://kubernetes.default.svc
+    server: $CLUSTER_SERVER
     namespace: argocd
+
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
 EOF
 
-# ==================================
+# ==========================================
 # DEV APPLICATION
-# ==================================
+# ==========================================
 
 cat > argocd/children/dev-app.yaml <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
+
 metadata:
   name: dev-app
   namespace: argocd
+
 spec:
   project: default
+
   source:
     repoURL: $REPO_URL
-    targetRevision: main
-    path: apps
+    targetRevision: $BRANCH
+    path: $PROJECT/apps
+
   destination:
-    server: https://kubernetes.default.svc
+    server: $CLUSTER_SERVER
     namespace: dev
+
   syncPolicy:
     automated:
       prune: true
@@ -229,25 +251,30 @@ spec:
       - CreateNamespace=true
 EOF
 
-# ==================================
+# ==========================================
 # STAGING APPLICATION
-# ==================================
+# ==========================================
 
 cat > argocd/children/staging-app.yaml <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
+
 metadata:
   name: staging-app
   namespace: argocd
+
 spec:
   project: default
+
   source:
     repoURL: $REPO_URL
-    targetRevision: main
-    path: apps
+    targetRevision: $BRANCH
+    path: $PROJECT/apps
+
   destination:
-    server: https://kubernetes.default.svc
+    server: $CLUSTER_SERVER
     namespace: staging
+
   syncPolicy:
     automated:
       prune: true
@@ -256,25 +283,30 @@ spec:
       - CreateNamespace=true
 EOF
 
-# ==================================
+# ==========================================
 # PROD APPLICATION
-# ==================================
+# ==========================================
 
 cat > argocd/children/prod-app.yaml <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
+
 metadata:
   name: prod-app
   namespace: argocd
+
 spec:
   project: default
+
   source:
     repoURL: $REPO_URL
-    targetRevision: main
-    path: apps
+    targetRevision: $BRANCH
+    path: $PROJECT/apps
+
   destination:
-    server: https://kubernetes.default.svc
+    server: $CLUSTER_SERVER
     namespace: prod
+
   syncPolicy:
     automated:
       prune: true
@@ -283,25 +315,16 @@ spec:
       - CreateNamespace=true
 EOF
 
-# ==================================
+# ==========================================
 # README
-# ==================================
+# ==========================================
 
-cat > README.md <<'EOF'
+cat > README.md <<EOF
 # ArgoCD Multi-Stage Demo
 
-## Repository Structure
+Repository: $REPO_URL
 
-- apps/
-  - nginx/
-  - apache/
-  - online-shop/
-- argocd/
-  - root-app.yaml
-  - children/
-    - dev-app.yaml
-    - staging-app.yaml
-    - prod-app.yaml
+Branch: $BRANCH
 
 ## Architecture
 
@@ -315,11 +338,33 @@ Each environment deploys:
 - Nginx
 - Apache
 - Online Shop
+
+## Technologies
+
+- Kubernetes
+- Argo CD
+- Kustomize
+- GitHub
 EOF
 
+# ==========================================
+# COMPLETION
+# ==========================================
+
 echo ""
-echo "Project structure created successfully!"
-echo "Repository: $REPO_URL"
+echo "=========================================="
+echo " PROJECT CREATED SUCCESSFULLY"
+echo "=========================================="
+
+echo "GitHub: $REPO_URL"
+echo "Branch: $BRANCH"
+echo "Cluster: $CLUSTER_SERVER"
+
 echo ""
-echo "Generated files:"
+echo "Generated Files:"
 find . -type f | sort
+
+echo ""
+echo "=========================================="
+echo " All YAML files generated successfully!"
+echo "=========================================="
