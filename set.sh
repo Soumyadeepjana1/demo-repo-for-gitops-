@@ -5,16 +5,21 @@ set -e
 
 PROJECT="argocd-multistage-demo"
 REPO_URL="https://github.com/Soumyadeepjana1/demo-repo-for-gitops-.git"
-BRANCH="main"
 
-echo "Creating ArgoCD Multi-Stage Demo..."
+echo "Creating project structure..."
 
-mkdir -p "$PROJECT"/apps/{nginx,apache,online-shop}
-mkdir -p "$PROJECT"/argocd/children
+# Directories
+mkdir -p "$PROJECT/apps/nginx"
+mkdir -p "$PROJECT/apps/apache"
+mkdir -p "$PROJECT/apps/online-shop"
+mkdir -p "$PROJECT/argocd/children"
 
 cd "$PROJECT"
 
+# ==================================
 # NGINX
+# ==================================
+
 cat > apps/nginx/deployment.yaml <<'EOF'
 apiVersion: apps/v1
 kind: Deployment
@@ -43,6 +48,7 @@ kind: Service
 metadata:
   name: nginx
 spec:
+  type: ClusterIP
   selector:
     app: nginx
   ports:
@@ -58,7 +64,10 @@ resources:
   - service.yaml
 EOF
 
+# ==================================
 # APACHE
+# ==================================
+
 cat > apps/apache/deployment.yaml <<'EOF'
 apiVersion: apps/v1
 kind: Deployment
@@ -87,6 +96,7 @@ kind: Service
 metadata:
   name: apache
 spec:
+  type: ClusterIP
   selector:
     app: apache
   ports:
@@ -102,7 +112,10 @@ resources:
   - service.yaml
 EOF
 
+# ==================================
 # ONLINE SHOP
+# ==================================
+
 cat > apps/online-shop/deployment.yaml <<'EOF'
 apiVersion: apps/v1
 kind: Deployment
@@ -133,6 +146,7 @@ kind: Service
 metadata:
   name: online-shop
 spec:
+  type: ClusterIP
   selector:
     app: online-shop
   ports:
@@ -148,7 +162,10 @@ resources:
   - service.yaml
 EOF
 
+# ==================================
 # APPS KUSTOMIZATION
+# ==================================
+
 cat > apps/kustomization.yaml <<'EOF'
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -158,7 +175,10 @@ resources:
   - online-shop
 EOF
 
+# ==================================
 # ROOT APPLICATION
+# ==================================
+
 cat > argocd/root-app.yaml <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -169,7 +189,7 @@ spec:
   project: default
   source:
     repoURL: $REPO_URL
-    targetRevision: $BRANCH
+    targetRevision: main
     path: argocd/children
     directory:
       recurse: true
@@ -182,24 +202,25 @@ spec:
       selfHeal: true
 EOF
 
-# CHILD APPLICATIONS
-for ENV in dev staging prod
-do
-cat > "argocd/children/${ENV}-app.yaml" <<EOF
+# ==================================
+# DEV APPLICATION
+# ==================================
+
+cat > argocd/children/dev-app.yaml <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: ${ENV}-app
+  name: dev-app
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: $REPO_URL
-    targetRevision: $BRANCH
+    targetRevision: main
     path: apps
   destination:
     server: https://kubernetes.default.svc
-    namespace: $ENV
+    namespace: dev
   syncPolicy:
     automated:
       prune: true
@@ -207,13 +228,83 @@ spec:
     syncOptions:
       - CreateNamespace=true
 EOF
-done
 
+# ==================================
+# STAGING APPLICATION
+# ==================================
+
+cat > argocd/children/staging-app.yaml <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: staging-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: $REPO_URL
+    targetRevision: main
+    path: apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+EOF
+
+# ==================================
+# PROD APPLICATION
+# ==================================
+
+cat > argocd/children/prod-app.yaml <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: $REPO_URL
+    targetRevision: main
+    path: apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+EOF
+
+# ==================================
 # README
+# ==================================
+
 cat > README.md <<'EOF'
 # ArgoCD Multi-Stage Demo
 
+## Repository Structure
+
+- apps/
+  - nginx/
+  - apache/
+  - online-shop/
+- argocd/
+  - root-app.yaml
+  - children/
+    - dev-app.yaml
+    - staging-app.yaml
+    - prod-app.yaml
+
 ## Architecture
+
 Root Application
   |
   |-- Dev Application
@@ -224,47 +315,11 @@ Each environment deploys:
 - Nginx
 - Apache
 - Online Shop
-
-## Technologies
-- Kubernetes
-- Argo CD
-- Kustomize
-- GitHub
-
-## Deploy
-kubectl apply -f argocd/root-app.yaml
-
-## Verify
-kubectl get applications -n argocd
-kubectl get pods -A
 EOF
 
-echo "Project files created!"
-
-# GIT SETUP
-git init
-git branch -M "$BRANCH"
-git add .
-git commit -m "Initial ArgoCD multistage demo"
-
-if git remote get-url origin >/dev/null 2>&1; then
-    git remote set-url origin "$REPO_URL"
-else
-    git remote add origin "$REPO_URL"
-fi
-
 echo ""
-echo "=================================="
-echo "Project created successfully!"
-echo "GitHub: $REPO_URL"
-echo "=================================="
-
+echo "Project structure created successfully!"
+echo "Repository: $REPO_URL"
+echo ""
+echo "Generated files:"
 find . -type f | sort
-
-echo ""
-echo "Push your project using:"
-echo "git push -u origin $BRANCH"
-
-echo ""
-echo "After pushing, deploy using:"
-echo "kubectl apply -f argocd/root-app.yaml"
